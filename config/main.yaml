@@ -1,0 +1,11 @@
+# main.yaml
+#paths
+paths:
+  CODE_PATH: '/Users/masoudkhani/Documents/Programming/Internship 2023/codes_for_analysis/processing_pipeline' #usually add this folder to path
+  DATA_PATH: '/Users/masoudkhani/Documents/Programming/Internship 2023/BRK sample ReyLab web/' #path with the parsed channels
+  OUTPUT_FOLDER: '/Users/masoudkhani/Documents/Programming/Internship 2023/OUTPUT'
+  WAVE_CLUS_PATH: '/Users/masoudkhani/Documents/Programming/Internship 2023/wave_clus'
+defualts:
+  model: #Path to default model
+
+  preprocess: preprocess/preprocess.yaml

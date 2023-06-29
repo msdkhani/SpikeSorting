@@ -1,0 +1,19 @@
+# preprocess.yaml
+bandpass:
+  low_cutoff: 300
+  high_cutoff: 3000
+
+detect_spikes:
+  threshold: 5
+  window_size: 0.001
+
+extract_waveforms:
+  window_size: 0.002
+  align_to_peak: true
+
+pca:
+  n_components: 3
+
+cluster:
+  method: kmeans
+  n_clusters: 4
