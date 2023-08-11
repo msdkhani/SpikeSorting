@@ -5,6 +5,7 @@ import numpy as np
 from scipy.io import loadmat
 import warnings
 from pathlib import Path
+import yaml
 import re
 
 class NSXRecordingExtractor(BaseRecording):
@@ -27,9 +28,37 @@ class NSXRecordingExtractor(BaseRecording):
     is_writable = False
     mode = 'file'
     installation_mesg = ""  # error message when not installed
+    
+    def apply_gain(self, rec_segment, gain,dc):
+        for i, timeseries in enumerate(rec_segment._timeseries):
+            rec_segment._timeseries[i] = timeseries * gain + dc
+        return rec_segment
+    
+
+
+    def get_channels_by_bundle(self):
+        """
+        Get a dictionary where each bundle contains a list of channels for the entire recording.
+        Returns
+        -------
+        dict
+            Dictionary where each bundle name maps to a list of dictionaries containing channel ID and label.
+        """
+        bundles = self.get_property("bundle")
+        channel_ids = self.get_channel_ids()
+        labels = self.get_property("label")
+        channels_by_bundle = {}
+        for channel_index, bundle_name in enumerate(bundles):
+            channel_id = channel_ids[channel_index]
+            label = labels[channel_index]
+            channel_info = {"channel_id": channel_id, "label": label}
+            if bundle_name in channels_by_bundle:
+                channels_by_bundle[bundle_name].append(channel_info)
+            else:
+                channels_by_bundle[bundle_name] = [channel_info]
+        return channels_by_bundle
 
     def __init__(self, channels, folder_path='.', probes_from = 'labels'):
-
 
         self._folder_path = Path(folder_path)
         metadata = loadmat(str(self._folder_path / 'NSx.mat'),variable_names='NSx', squeeze_me=True, simplify_cells=True)
@@ -42,6 +71,13 @@ class NSXRecordingExtractor(BaseRecording):
         self._ch2pos = {}
         det_channels = [] #channesl found
         probes = []
+        gain = None
+        dc = None
+        bundles = []
+        
+        if channels is None:
+            channels = [x['chan_ID'] for x in metadata['NSx'] if x['sr']==30000 and x['is_micro']==1]
+        
         for ch in channels:
             #fist check the nc6
             info = list(filter(lambda x: (x['chan_ID'] == ch) and (x['ext'] != '.NC6'), metadata['NSx']))
@@ -57,14 +93,17 @@ class NSXRecordingExtractor(BaseRecording):
             if sr is None:
                 sr = info['sr']
                 gain = info['conversion']
+                dc = info['dc']
             else:
                 assert (sr == info['sr']), 'channels with different sampling rate'
                 assert (gain == info['conversion']), 'channels with different sampling gain'
+                assert(dc == info['dc']), 'channels with different dc offset'
             self._lts = np.min([self._lts, info['lts']]).astype(int)
             labels.append(info['label'])
+            bundles.append(info['bundle'])
             electrode_ID.append(info['electrode_ID'])
             if probes_from == 'labels':
-                probes.append(info['macro'])
+                probes.append(info['label'].split(' raw')[0])
             elif probes_from == 'channel/8':
                 probes.append(np.floor((info['electrode_ID']- 1) / 8).astype(int))
             elif probes_from == 'channel/9':
@@ -77,10 +116,12 @@ class NSXRecordingExtractor(BaseRecording):
             #self._ch2pos[ch] = len(self._timeseries)-1
 
         BaseRecording.__init__(self, sr, det_channels, np.int16)
+        
         self.set_channel_gains(gain)
-        self.set_channel_offsets(0)
+        self.set_channel_offsets(dc)
         self.annotate(is_filtered=False)
         self.set_property("electrode_ID", electrode_ID)
+        self.set_property("bundle", bundles)
         self.set_property("label", labels)
         self.set_property("probe", probes)
         self.set_property("channel", det_channels)
@@ -104,12 +145,13 @@ class NSXRecordingExtractor(BaseRecording):
 
         self.set_channel_locations(positions)
         rec_segment = MultiFileBinaryRecordingSegment(sr,file_paths, dtype=np.int16, file_offset=0)
+        # multibly by conversion factor
+        rec_segment = self.apply_gain(rec_segment, gain,dc)
         self.add_recording_segment(rec_segment)
 
         self._kwargs = {'folder_path': folder_path,
                         'channels': det_channels
                         }
-
 
  
 class MultiFileBinaryRecordingSegment(BaseRecordingSegment):
@@ -140,22 +182,29 @@ class MultiFileBinaryRecordingSegment(BaseRecordingSegment):
         return np.hstack([ch[start_frame:end_frame,:] for ch in timeseries])
 
 
+with open("../config/config.yaml", 'r') as stream:
+    config = yaml.safe_load(stream)
+
 def load_notches_structs(recording):
-    info = loadmat(str(recording._folder_path/'pre_processing_info.mat'),
+    info = loadmat(config['mat_notches']['path'],
                    variable_names='process_info', squeeze_me=True, simplify_cells=True)['process_info']
     ids = [d['chID'] for d in info]
     sos = {}
     g = {}
+    freq = {}
     chIDs = recording.get_channel_ids()
     notches_dict = {}
     for ch_id in chIDs:
         if ch_id in ids:
             sos = info[ids.index(ch_id)]['SOS'].copy(order='C')
             g = info[ids.index(ch_id)]['G']
+            freq = info[ids.index(ch_id)]['freqs_notch']
         else:
             sos = None
             g = None
-        notches_dict[ch_id] ={'sos': sos, 'g': g}
+            freq = None
+            
+        notches_dict[ch_id] ={'sos': sos, 'g': g, 'freq': freq}
     return notches_dict
 
-__version__ = '1.01'
+__version__ = '2.00'

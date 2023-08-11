@@ -10,6 +10,7 @@ from spikeinterface.qualitymetrics import compute_quality_metrics, calculate_pc_
 import spikeinterface as si
 from os import listdir
 from joblib import Parallel, delayed, cpu_count
+from scipy.stats import gaussian_kde
 
 sns.set(rc={'axes.facecolor':'white', 'figure.facecolor':'white'})
 
@@ -18,8 +19,7 @@ leicolors_list = [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 0.5, 0.0], [0.620690, 
                   [0.545, 0.545, 0.545], [0.586207, 0.827586, 0.310345], [0.965517, 0.620690, 0.862069],
                   [0.620690, 0.758621, 1.]] #silly name, just colors that look different enough
 leicolors = lambda x: leicolors_list[x % len(leicolors_list)]
-from scipy.stats import gaussian_kde
-import matplotlib 
+
 
 def split_sorting_by(sorting, property, outputs='dict',rec=None):
         assert outputs in ('list', 'dict')
@@ -57,7 +57,7 @@ def split_sorting_by(sorting, property, outputs='dict',rec=None):
 
 def same_probe_collisions(sorting_all,recording, prop_thr=-1, delta_time=0.4, outputfolder = '.'):
     
-    
+
     results = {}
     sortings_probe = split_sorting_by(sorting_all, 'probe', outputs='dict',rec=recording)
     # here parallel can be added (FC)
@@ -146,7 +146,7 @@ def plot_channels_from_wf(f, output_folder, nspikes=3000, bin_step=1, nbins=100,
     
     we=si.WaveformExtractor.load_from_folder(f)
     x4plot = np.arange(1, we.nsamples+1)
-    sns.set_style('seaborn-whitegrid')
+    sns.set_style('whitegrid')
     plt.rcParams.update({'font.size': 18})        
     from matplotlib.colors import LogNorm
 
@@ -158,6 +158,7 @@ def plot_channels_from_wf(f, output_folder, nspikes=3000, bin_step=1, nbins=100,
 
     srk = sorting.get_sampling_frequency() / 1000
     units = sorting.get_unit_ids()
+
     spikes = {}
     means = {}
     stds = {}
@@ -329,3 +330,22 @@ def load_waveforms_extractors(OUTPUT_FOLDER, channels=None):
     for channel in channels:
         waveforms_ch[channel] = si.WaveformExtractor.load_from_folder(OUTPUT_FOLDER/Path(f'wf_ch_{channel}'))
     return waveforms_ch
+
+
+
+#%%
+# this cell generates a waveform extractor with all the data together (not needed)
+# It coulb be use for see waveforms present in more than one channel
+# we = si.WaveformExtractor.create(recording_filtered, sorting_all, OUTPUT_FOLDER/Path('wf_all'),remove_if_exists=True)
+# we.set_params(ms_before=0.7, ms_after=1.5, max_spikes_per_unit=50000)
+# we.run_extract_waveforms(n_jobs=1,chunk_memory='5G',verbose=True)
+
+# pca = WaveformPrincipalComponent(we)
+# pca.set_params(n_components=5, mode='by_channel_local')
+# pca.run()
+# quality_metrics = compute_quality_metrics(we)
+# pca_metrics = calculate_pc_metrics(pca)
+# amplitudes = compute_spike_amplitudes(we, peak_sign='neg')
+
+# to reload the waveform from folder
+#we = si.WaveformExtractor.load_from_folder('wf_all')
