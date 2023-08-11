@@ -1,5 +1,7 @@
 # Spike Sorting Pipeline
 
+- This project was part of the [Reylab](https://www.mcw.edu/departments/neurosurgery/research/rey-laboratory/research) spikesorting pipeline.
+
 The following is a processing pipeline for analyzing neural recordings using MATLAB and Python. Here are the requirements for each:
 
 ### MATLAB Requirements  
