@@ -1,4 +1,4 @@
-# Processing Pipeline
+# Spike Sorting Pipeline
 
 The following is a processing pipeline for analyzing neural recordings using MATLAB and Python. Here are the requirements for each:
 
@@ -39,6 +39,6 @@ pip install -r requirements.txt
 
 
 **Notes**
-We need to change the bandpass filter from butterworth to epilettic
+We need to change the bandpass filter from butterworth to 
 
 
